@@ -1,4 +1,4 @@
-#실습
+# 실습
 ###드라이버 파일 생성
 
 pi@raspberrypi:~/development/drivers/mygpio0 $ nano mygpio0.c
