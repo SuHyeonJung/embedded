@@ -1,6 +1,7 @@
 # 실습
-###드라이버 파일 생성
 
+###드라이버 파일 생성
+//읽고 쓰기와 자동 커널에 등록하기 위한 코드 생성
 pi@raspberrypi:~/development/drivers/mygpio0 $ nano mygpio0.c
 
 ###mygpio0.c 코드
@@ -75,6 +76,7 @@ module_exit(cdev_exit);
 MODULE_LICENSE("GPL");
 
 ###Makefile
+// 지정된 순서대로 빌드를 하기 위한 사전 작업 코드
 
 obj-m+=mygpio0.o
 
@@ -87,7 +89,7 @@ clean:
 
 pi@raspberrypi:~/development/drivers/mygpio0 $ make
 
-###커널에 모듈 올리기
+###커널에 모듈 적재
 
 pi@raspberrypi:~/development/drivers/mygpio0 $ sudo insmod mygpio0.ko
 
@@ -112,31 +114,40 @@ and the attributes from one single parent device.
     DRIVER==""
     
 ###디바이스 파일 권한 자동 변경
-
+//99-mygpio0.rules 파일 생성
 pi@raspberrypi:~/development/drivers/mygpio0 $ sudo nano /etc/udev/rules.d/99-mygpio0.rules
+//아래와 같이 작성 후 저장
 KERNEL=="mygpio0", SUBSYSTEM=="mygpio", MODE="0666"
 
 ###디바이스 파일 권한 변경 확인
-
+//파일 권한 변경을 위한 해당 디렉토리로 이동
 pi@raspberrypi:/etc/udev/rules.d $ cd ~/development/drivers/mygpio0/
+//권한부여 명령어(sudo)와 함께 커널에 모듈 제거
 pi@raspberrypi:~/development/drivers/mygpio0 $ sudo rmmod mygpio0
+//권한부여 명령어(sudo)와 함께 커널에 모듈 
 pi@raspberrypi:~/development/drivers/mygpio0 $ sudo insmod mygpio0.ko
+//디바이스 파일 자동 생성 확인
 pi@raspberrypi:~/development/drivers/mygpio0 $ ls -l /dev/mygpio0
 crw-rw-rw- 1 root root 240, 0  1월  3 07:34 /dev/mygpio0
 
 ###디바이스 모듈 추가
-
+////디바이스 모듈 추가를 위한 해당 디렉토리로 이동
 pi@raspberrypi:~/development/drivers/mygpio0 $ cd /lib/modules/4.19.75-v7+/kernel/drivers/
+//권한부여 명령어(sudo)와 함께 폴더 생성 *mkdir(폴더 생성 명령어)
 pi@raspberrypi:/lib/modules/4.19.75-v7+/kernel/drivers $ sudo mkdir mygpio
+//생성한 폴더로 이동
 pi@raspberrypi:/lib/modules/4.19.75-v7+/kernel/drivers $ cd mygpio/
+//권한부여 명령어(sudo)로 파일 복사
 pi@raspberrypi:/lib/modules/4.19.75-v7+/kernel/drivers/mygpio $ sudo cp ~/development/drivers/mygpio0/mygpio0.ko ./
+//mygpio에서 module.dep파일 생성
 pi@raspberrypi:/lib/modules/4.19.75-v7+/kernel/drivers/mygpio $ sudo depmod
+//module.dep파일을 찾아 적재한다.*insmod와 달리 해당 커널 디렉토리로 갈 필요없이 아무위치에서나 모듈 적재 가능
 pi@raspberrypi:/lib/modules/4.19.75-v7+/kernel/drivers/mygpio $ sudo modprobe mygpio0
 
 ###부팅 시 자동 모듈 등록
 
 pi@raspberrypi:~ $ sudo nano /etc/modules 
-/etc/modules 내용 수정
+/etc/modules 기존 내용에서 아래내용 추가 후 저장
 mygpio0
 
 ###리부팅
