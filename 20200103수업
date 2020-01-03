@@ -1,0 +1,149 @@
+#실습
+###드라이버 파일 생성
+
+pi@raspberrypi:~/development/drivers/mygpio0 $ nano mygpio0.c
+
+###mygpio0.c 코드
+
+#include <linux/module.h>
+#include <linux/device.h>
+#include <linux/fs.h>
+
+#define CDEV_MAJOR 230
+#define CDEV_MINOR 0
+#define CLASS_NAME "mygpio"
+#define DEVICE_NAME "mygpio0"
+
+static struct class *cdev_class = NULL;
+static dev_t cdev_id;
+
+static int cdev_open(struct inode *inodep, struct file *filep)
+{
+    printk(KERN_INFO "call cdev_open\n");
+    return 0;
+}
+
+static ssize_t cdev_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
+{
+    printk(KERN_INFO "call cdev_read\n");
+    return len;
+}
+
+static ssize_t cdev_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
+{
+    printk(KERN_INFO "call cdev_write\n");
+    return len;
+}
+
+static int cdev_release(struct inode *inodep, struct file *filep)
+{
+    printk(KERN_INFO "call cdev_release\n");
+    return 0;
+}
+
+static struct file_operations fops =
+{
+        .owner = THIS_MODULE,
+        .open = cdev_open,
+        .read = cdev_read,
+        .write = cdev_write,
+        .release = cdev_release,
+};
+
+static int __init cdev_init(void)
+{
+    register_chrdev(CDEV_MAJOR, DEVICE_NAME, &fops);
+    cdev_class = class_create(THIS_MODULE, CLASS_NAME);
+    cdev_id = MKDEV(CDEV_MAJOR, CDEV_MINOR);
+    device_create(cdev_class, NULL, cdev_id, NULL, DEVICE_NAME);
+    printk(KERN_INFO "call cdev_init\n");
+    return 0;
+}
+
+static void __exit cdev_exit(void)
+{
+    device_destroy(cdev_class, cdev_id);
+    class_unregister(cdev_class);
+    class_destroy(cdev_class);
+    unregister_chrdev(CDEV_MAJOR, DEVICE_NAME);
+    printk(KERN_INFO "call cdev_exit\n");
+}
+
+module_init(cdev_init);
+module_exit(cdev_exit);
+
+MODULE_LICENSE("GPL");
+
+###Makefile
+
+obj-m+=mygpio0.o
+
+all:
+	make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) modules
+clean:
+	make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) clean
+
+###빌드(컴파일)
+
+pi@raspberrypi:~/development/drivers/mygpio0 $ make
+
+###커널에 모듈 올리기
+
+pi@raspberrypi:~/development/drivers/mygpio0 $ sudo insmod mygpio0.ko
+
+###디바이스 파일 자동 생성 확인
+
+pi@raspberrypi:~/development/drivers/mygpio0 $ ls -l /dev/mygpio0
+crw------- 1 root root 240, 0  1월  3 07:29 /dev/mygpio0
+
+###디바이스 정보 보기
+
+pi@raspberrypi:~/development/drivers/mygpio0 $ udevadm info -a -p /sys/class/mygpio/mygpio0
+
+Udevadm info starts with the device specified by the devpath and then
+walks up the chain of parent devices. It prints for every device
+found, all possible attributes in the udev rules key format.
+A rule to match, can be composed by the attributes of the device
+and the attributes from one single parent device.
+
+  looking at device '/devices/virtual/mygpio/mygpio0':
+    KERNEL=="mygpio0"
+    SUBSYSTEM=="mygpio"
+    DRIVER==""
+    
+###디바이스 파일 권한 자동 변경
+
+pi@raspberrypi:~/development/drivers/mygpio0 $ sudo nano /etc/udev/rules.d/99-mygpio0.rules
+KERNEL=="mygpio0", SUBSYSTEM=="mygpio", MODE="0666"
+
+###디바이스 파일 권한 변경 확인
+
+pi@raspberrypi:/etc/udev/rules.d $ cd ~/development/drivers/mygpio0/
+pi@raspberrypi:~/development/drivers/mygpio0 $ sudo rmmod mygpio0
+pi@raspberrypi:~/development/drivers/mygpio0 $ sudo insmod mygpio0.ko
+pi@raspberrypi:~/development/drivers/mygpio0 $ ls -l /dev/mygpio0
+crw-rw-rw- 1 root root 240, 0  1월  3 07:34 /dev/mygpio0
+
+###디바이스 모듈 추가
+
+pi@raspberrypi:~/development/drivers/mygpio0 $ cd /lib/modules/4.19.75-v7+/kernel/drivers/
+pi@raspberrypi:/lib/modules/4.19.75-v7+/kernel/drivers $ sudo mkdir mygpio
+pi@raspberrypi:/lib/modules/4.19.75-v7+/kernel/drivers $ cd mygpio/
+pi@raspberrypi:/lib/modules/4.19.75-v7+/kernel/drivers/mygpio $ sudo cp ~/development/drivers/mygpio0/mygpio0.ko ./
+pi@raspberrypi:/lib/modules/4.19.75-v7+/kernel/drivers/mygpio $ sudo depmod
+pi@raspberrypi:/lib/modules/4.19.75-v7+/kernel/drivers/mygpio $ sudo modprobe mygpio0
+
+###부팅 시 자동 모듈 등록
+
+pi@raspberrypi:~ $ sudo nano /etc/modules 
+/etc/modules 내용 수정
+mygpio0
+
+###리부팅
+
+pi@raspberrypi:~ $ sudo reboot
+
+###리부팅 후에 자동으로 디바이스 파일이 등록는지 확인
+
+pi@raspberrypi:~ $ ls -l /dev/mygpio0
+crw-rw-rw- 1 root root 240, 0  1월  3 07:42 /dev/mygpio0
